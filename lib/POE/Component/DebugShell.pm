@@ -1,5 +1,5 @@
 package POE::Component::DebugShell;
-# $Header: /cvsroot/sungo/POE-Component-DebugShell/lib/POE/Component/DebugShell.pm,v 1.14 2004/02/27 00:38:27 sungo Exp $
+# $Header: /cvsroot/sungo/POE-Component-DebugShell/lib/POE/Component/DebugShell.pm,v 1.15 2004/03/05 03:57:43 sungo Exp $
 
 use warnings;
 use strict;
@@ -13,7 +13,7 @@ use POE::Wheel::ReadLine;
 use POE::API::Peek;
 
 
-our $VERSION = (qw($Revision: 1.14 $))[1];
+our $VERSION = (qw($Revision: 1.15 $))[1];
 our $RUNNING = 0;
 our %COMMANDS;
 our $SPAWN_TIME;
@@ -293,8 +293,13 @@ sub cmd_queue_dump { #{{{
     my %args = @_;
     my $api = $args{api};
     my $verbose;
-    if(defined $args{args} && (@{$args{args}}[0] eq '-v')) {
-        $verbose = 1;
+    
+    if($args{args} && defined $args{args}) {
+        if(ref $args{args} eq 'ARRAY') {
+            if(@{$args{args}}[0] eq '-v') {
+                $verbose = 1;
+            }
+        }
     }
     
     my @queue = $api->event_queue_dump();
@@ -353,10 +358,88 @@ running POE application
 
 =head1 DESCRIPTION
 
-This component allows for interactive peeking into a running POE application.
+This component allows for interactive peeking into a running POE
+application.
 
+C<spawn()> creates a ReadLine enabled shell equipped with various debug
+commands. The following commands are available.
 
-=cut
+=head1 COMMANDS
+
+=head2 show_sessions
+
+ debug> show_sessions
+    * 3 [ session 3 (POE::Component::DebugShell controller) ]
+    * 2 [ session 2 (PIE, PIE2) ]
+
+Show a list of all sessions in the system. The output format is in the
+form of loggable session ids.
+
+=head2 session_stats
+
+ debug> session_stats 2
+    Statistics for Session 2
+        Events coming from: 1
+        Events going to: 1
+
+Display various statistics for a given session. Provide one session id
+as a parameter.
+
+=head2 list_aliases
+
+ debug> list_aliases 2
+    Alias list for session 2
+        * PIE
+        * PIE2
+
+List aliases for a given session id. Provide one session id as a
+parameter.
+
+=head2 queue_dump
+
+ debug> queue_dump
+    Event Queue:
+        * ID: 738 - Index: 0
+            Priority: 1078459009.06715
+            Event: _sigchld_poll
+        * ID: 704 - Index: 1
+            Priority: 1078459012.42691
+            Event: ping
+            
+Dump the contents of the event queue. Add a C<-v> parameter to get
+verbose output.
+
+=head2 help
+
+ debug> help
+    The following commands are available:
+        ...
+
+Display help about available commands.
+
+=head2 status
+
+ debug> status
+    This is POE::Component::DebugShell v1.14
+    running inside examples/foo.perl.
+    This console spawned at Thu Mar 4 22:51:51 2004.
+    There are 3 known sessions (including the kernel).
+
+General shell status.
+
+=head2 reload
+
+ debug> reload
+ Reloading...
+
+Reload the shell
+
+=head2 exit
+
+ debug> exit
+ Exiting...
+
+Exit the shell
 
 =head1 AUTHOR
 
@@ -364,7 +447,7 @@ Matt Cashner (cpan@eekeek.org)
 
 =head1 DATE
 
-$Date: 2004/02/27 00:38:27 $
+$Date: 2004/03/05 03:57:43 $
 
 =head1 LICENSE
 

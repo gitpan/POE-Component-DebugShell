@@ -1,5 +1,5 @@
 name: POE-Component-DebugShell
-version: 1.14
+version: 1.15
 author: Matt Cashner (cpan@eekeek.org)
 license: bsd
 distribution_type: module
