@@ -1,5 +1,5 @@
 package POE::Component::DebugShell;
-# $Header: /cvsroot/sungo/POE-Component-DebugShell/lib/POE/Component/DebugShell.pm,v 1.15 2004/03/05 03:57:43 sungo Exp $
+# $Header: /cvsroot/sungo/POE-Component-DebugShell/lib/POE/Component/DebugShell.pm,v 1.18 2004/03/07 01:45:47 sungo Exp $
 
 use warnings;
 use strict;
@@ -13,7 +13,7 @@ use POE::Wheel::ReadLine;
 use POE::API::Peek;
 
 
-our $VERSION = (qw($Revision: 1.15 $))[1];
+our $VERSION = (qw($Revision: 1.18 $))[1];
 our $RUNNING = 0;
 our %COMMANDS;
 our $SPAWN_TIME;
@@ -123,9 +123,12 @@ sub term_input { #{{{
         }
 
         if($COMMANDS{$cmd}) {
-            eval { $COMMANDS{$cmd}{cmd}->( api => $_[HEAP]->{api}, args => \@args); };
+            my $txt = eval { $COMMANDS{$cmd}{cmd}->( api => $_[HEAP]->{api}, args => \@args); };
             if($@) {
                 _output("Error running $cmd: $@");
+            } else {
+                my @lines = split(/\n/, $txt);
+                _output($_) for @lines;
             }
         } else {
             _output("Error: '$cmd' is not a known command");
@@ -144,6 +147,9 @@ sub _output { #{{{
     $heap->{rl}->put($msg);
 } #}}}
 
+sub _raw_commands { #{{{
+    return \%COMMANDS;
+} #}}}
 
 #   ____                                          _     
 #  / ___|___  _ __ ___  _ __ ___   __ _ _ __   __| |___ 
@@ -154,12 +160,6 @@ sub _output { #{{{
 # {{{
 
 %COMMANDS = ( #{{{
-
-    'exit' => {
-        help => "Exit the shell",
-        short_help => 'Exit the shell',
-        cmd => \&cmd_exit,      
-    },
 
     'reload' => {
         help => "Reload the shell to catch updates.",
@@ -200,42 +200,41 @@ sub _output { #{{{
 
 ###############
 
-sub cmd_exit { #{{{
-    _output('Exiting...');
-    exit;
-} #}}}
-
 sub cmd_reload { #{{{
-    {
-        _output("Reloading....");
-        eval q|
-            no warnings qw(redefine);
-            $SIG{__WARN__} = sub { };
-            
-            foreach my $key (keys %INC) {
-                if($key =~ m#POE/Component/DebugShell#) {
-                    delete $INC{$key};
-                } elsif ($key =~ m#POE/API/Peek#) {
-                    delete $INC{$key};
-                }
+    my $ret;
+    $ret .= "Reloading....\n";
+    eval q|
+        no warnings qw(redefine);
+        $SIG{__WARN__} = sub { };
+        
+        foreach my $key (keys %INC) {
+            if($key =~ m#POE/Component/DebugShell#) {
+                delete $INC{$key};
+            } elsif ($key =~ m#POE/API/Peek#) {
+                delete $INC{$key};
             }
-            require POE::Component::DebugShell;
-        |;
-        _output("Error: $@") if $@;
-    }
+        }
+        require POE::Component::DebugShell;
+    |;
+    $ret .= "Error: $@\n" if $@;
+
+    return $ret;
 } #}}}
 
 sub cmd_show_sessions { #{{{
     my %args = @_;
     my $api = $args{api};
-     
-    _output("Session List:");
+    
+    my $ret;  
+    $ret .= "Session List:\n";
     my @sessions = $api->session_list;
     foreach my $sess (@sessions) {
         
         my $id = $sess->ID. " [ ".$api->session_id_loggable($sess)." ]";
-        _output("\t* $id");
+        $ret .= "\t* $id\n";
     }
+    
+    return $ret;
 } #}}}
 
 sub cmd_list_aliases { #{{{
@@ -243,24 +242,27 @@ sub cmd_list_aliases { #{{{
     my $user_args = $args{args};
     my $api = $args{api};
     
+    my $ret;
+    
     if(my $id = shift @$user_args) {
         if(my $sess = $api->resolve_session_to_ref($id)) {
             my @aliases = $api->session_alias_list($sess);
             if(@aliases) {
-                _output("Alias list for session $id");
+                $ret .= "Alias list for session $id\n";
                 foreach my $alias (sort @aliases) {
-                    _output("\t* $alias");
+                    $ret .= "\t* $alias\n";
                 }
             } else {
-                _output("No aliases found for session $id");
+                $ret .= "No aliases found for session $id\n";
             }
         } else {
-            _output("** Error: ID $id does not resolve to a session. Sorry.");
+            $ret .= "** Error: ID $id does not resolve to a session. Sorry.\n";
         }
 
     } else {
-        _output("** Error: Please provide a session id");
+        $ret .= "** Error: Please provide a session id\n";
     }
+    return $ret;
 }
 
 # }}}
@@ -269,30 +271,35 @@ sub cmd_session_stats { #{{{
     my %args = @_;
     my $user_args = $args{args};
     my $api = $args{api};
+
+    my $ret;
+    
     if(my $id = shift @$user_args) {
         if(my $sess = $api->resolve_session_to_ref($id)) {
             my $to = $api->event_count_to($sess);
             my $from = $api->event_count_from($sess);
-            _output("Statistics for Session $id");
-            _output("\tEvents coming from: $from");
-            _output("\tEvents going to: $to");
+            $ret .= "Statistics for Session $id\n";
+            $ret .= "\tEvents coming from: $from\n";
+            $ret .= "\tEvents going to: $to\n";
             
         } else {
-            _output("** Error: ID $id does not resolve to a session. Sorry.");
+            $ret .= "** Error: ID $id does not resolve to a session. Sorry.\n";
         }
 
 
     } else {
-        _output("** Error: Please provide a session id");
+        $ret .= "** Error: Please provide a session id\n";
     }
     
-
+    return $ret;
 } #}}}
 
 sub cmd_queue_dump { #{{{
     my %args = @_;
     my $api = $args{api};
     my $verbose;
+   
+    my $ret;
     
     if($args{args} && defined $args{args}) {
         if(ref $args{args} eq 'ARRAY') {
@@ -304,38 +311,38 @@ sub cmd_queue_dump { #{{{
     
     my @queue = $api->event_queue_dump();
     
-    _output("Event Queue:");
+    $ret .= "Event Queue:\n";
   
     foreach my $item (@queue) {
-        _output("\t* ID: ". $item->{ID}." - Index: ".$item->{index});
-        _output("\t\tPriority: ".$item->{priority});
-        _output("\t\tEvent: ".$item->{event});
+        $ret .= "\t* ID: ". $item->{ID}." - Index: ".$item->{index}."\n";
+        $ret .= "\t\tPriority: ".$item->{priority}."\n";
+        $ret .= "\t\tEvent: ".$item->{event}."\n";
 
         if($verbose) {
-            _output("\t\tSource: ".
-                    $api->session_id_loggable($item->{source})
-                   );
-            _output("\t\tDestination: ".
-                    $api->session_id_loggable($item->{destination})
-                   );
-            _output("\t\tType: ".$item->{type});
-
-            _output();
+            $ret .= "\t\tSource: ".
+                    $api->session_id_loggable($item->{source}).
+                    "\n";
+            $ret .= "\t\tDestination: ".
+                    $api->session_id_loggable($item->{destination}).
+                    "\n";
+            $ret .= "\t\tType: ".$item->{type}."\n";
+            $ret .= "\n";
         }
     }
-
+    return $ret;
 } #}}}
 
 sub cmd_status { #{{{
     my %args = @_;
     my $api = $args{api};
     my $sess_count = $api->session_count;
-    _output();
-    _output("This is ".__PACKAGE__." v".$VERSION);
-    _output("running inside $0.");
-    _output("This console was spawned at ".localtime($SPAWN_TIME).'.');
-    _output("There are $sess_count known sessions (including the kernel),");
-    _output();
+    my $ret = "\n";
+    $ret .= "This is ".__PACKAGE__." v".$VERSION."\n";
+    $ret .= "running inside $0."."\n";
+    $ret .= "This console was spawned at ".localtime($SPAWN_TIME).".\n";
+    $ret .= "There are $sess_count known sessions (including the kernel).\n";
+    $ret .= "\n";
+    return $ret;
 } # }}}
 
 # }}}
@@ -441,13 +448,40 @@ Reload the shell
 
 Exit the shell
 
+=head1 DEVELOPERS
+
+For you wacky developers, I've provided access to the raw command data
+via the C<_raw_commands> method. The underbar at the beginning should 
+let you know that this is an experimental interface for developers only. 
+
+C<_raw_commands> returns a hash reference. The keys of this hash are the
+command names. The values are a hash of data about the command. This
+hash contains the following data:
+
+=over 4
+
+=item * short_help
+
+Short help text
+
+=item * help
+
+Long help text
+
+=item * cmd
+
+Code reference for the command. This command requires that a hash be
+passed to it containing an C<api> parameter, which is a 
+C<POE::API::Peek> object, and an C<args> parameter, which is an array
+reference of arguments (think C<@ARGV>).
+
 =head1 AUTHOR
 
 Matt Cashner (cpan@eekeek.org)
 
 =head1 DATE
 
-$Date: 2004/03/05 03:57:43 $
+$Date: 2004/03/07 01:45:47 $
 
 =head1 LICENSE
 
