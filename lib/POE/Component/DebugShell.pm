@@ -12,7 +12,7 @@ use POE;
 use POE::Wheel::ReadLine;
 use POE::API::Peek;
 
-our $VERSION = '1.'.sprintf "%04d", (qw($Rev: 225 $))[1];
+our $VERSION = '1.'.sprintf "%04d", (qw($Rev: 411 $))[1];
 our $RUNNING = 0;
 our %COMMANDS;
 our $SPAWN_TIME;
@@ -29,7 +29,6 @@ sub spawn { #{{{
     }
     # }}}
 
-    
     my $api = POE::API::Peek->new() or croak "Unable to create POE::API::Peek object";
 
 
@@ -58,13 +57,17 @@ sub spawn { #{{{
 
 
 sub _start { #{{{
-    $_[KERNEL]->alias_set(__PACKAGE__." controller");    
+    $_[KERNEL]->alias_set(__PACKAGE__." controller");
+
     $_[HEAP]->{rl} = POE::Wheel::ReadLine->new( InputEvent => 'term_input' );
     $_[HEAP]->{prompt} = 'debug> ';
-    
+
+    tie *STDOUT, "POE::Component::DebugShell::Output", 'stdout', \&_output;
+    tie *STDERR, "POE::Component::DebugShell::Output", 'stderr', \&_output;
+
     $_[HEAP]->{rl}->clear();
     _output("Welcome to POE Debug Shell v$VERSION");
-    
+
     $_[HEAP]->{rl}->get($_[HEAP]->{prompt});
 
 } #}}}
@@ -107,10 +110,10 @@ sub term_input { #{{{
         foreach my $cmd (sort keys %COMMANDS) {
             no warnings;
             my $short_help = $COMMANDS{$cmd}{short_help} || '[ No short help provided ]';
-            _output("\t* $cmd - $short_help"); 
+            _output("\t* $cmd - $short_help");
         }
         _output(' ');
-        
+
     } else  {
         my ($cmd, @args);
         if($input =~ /^(.+?)\s+(.*)$/) {
@@ -135,14 +138,14 @@ sub term_input { #{{{
     }
 
     $_[HEAP]->{rl}->get($_[HEAP]->{prompt});
-       
+
 } #}}}
 
 
 
 sub _output { #{{{
     my $msg = shift || ' ';
-    my $heap = $poe_kernel->get_active_session->get_heap;
+    my $heap = $poe_kernel->alias_resolve(__PACKAGE__." controller")->get_heap(); 
     $heap->{rl}->put($msg);
 } #}}}
 
@@ -165,7 +168,7 @@ sub _raw_commands { #{{{
         short_help => "Reload the shell to catch updates.",
         cmd => \&cmd_reload,
     },
-    
+
     show_sessions => {
         help => 'Show a list of all sessions in the system. The output format is in the form of loggable session ids.',
         short_help => 'Show a list of all sessions',
@@ -205,7 +208,7 @@ sub cmd_reload { #{{{
     eval q|
         no warnings qw(redefine);
         $SIG{__WARN__} = sub { };
-        
+
         foreach my $key (keys %INC) {
             if($key =~ m#POE/Component/DebugShell#) {
                 delete $INC{$key};
@@ -223,16 +226,15 @@ sub cmd_reload { #{{{
 sub cmd_show_sessions { #{{{
     my %args = @_;
     my $api = $args{api};
-    
-    my $ret;  
+
+    my $ret;
     $ret .= "Session List:\n";
     my @sessions = $api->session_list;
     foreach my $sess (@sessions) {
-        
         my $id = $sess->ID. " [ ".$api->session_id_loggable($sess)." ]";
         $ret .= "\t* $id\n";
     }
-    
+
     return $ret;
 } #}}}
 
@@ -240,9 +242,9 @@ sub cmd_list_aliases { #{{{
     my %args = @_;
     my $user_args = $args{args};
     my $api = $args{api};
-    
+
     my $ret;
-    
+
     if(my $id = shift @$user_args) {
         if(my $sess = $api->resolve_session_to_ref($id)) {
             my @aliases = $api->session_alias_list($sess);
@@ -272,7 +274,7 @@ sub cmd_session_stats { #{{{
     my $api = $args{api};
 
     my $ret;
-    
+
     if(my $id = shift @$user_args) {
         if(my $sess = $api->resolve_session_to_ref($id)) {
             my $to = $api->event_count_to($sess);
@@ -280,7 +282,7 @@ sub cmd_session_stats { #{{{
             $ret .= "Statistics for Session $id\n";
             $ret .= "\tEvents coming from: $from\n";
             $ret .= "\tEvents going to: $to\n";
-            
+
         } else {
             $ret .= "** Error: ID $id does not resolve to a session. Sorry.\n";
         }
@@ -289,7 +291,7 @@ sub cmd_session_stats { #{{{
     } else {
         $ret .= "** Error: Please provide a session id\n";
     }
-    
+
     return $ret;
 } #}}}
 
@@ -297,9 +299,9 @@ sub cmd_queue_dump { #{{{
     my %args = @_;
     my $api = $args{api};
     my $verbose;
-   
+
     my $ret;
-    
+
     if($args{args} && defined $args{args}) {
         if(ref $args{args} eq 'ARRAY') {
             if(@{$args{args}}[0] eq '-v') {
@@ -307,11 +309,11 @@ sub cmd_queue_dump { #{{{
             }
         }
     }
-    
+
     my @queue = $api->event_queue_dump();
-    
+
     $ret .= "Event Queue:\n";
-  
+
     foreach my $item (@queue) {
         $ret .= "\t* ID: ". $item->{ID}." - Index: ".$item->{index}."\n";
         $ret .= "\t\tPriority: ".$item->{priority}."\n";
@@ -345,6 +347,29 @@ sub cmd_status { #{{{
 } # }}}
 
 # }}}
+
+1;
+
+package POE::Component::DebugShell::Output;
+
+use strict;
+#use warnings FATAL => "all";
+
+sub PRINT { 
+    my $self = shift;
+
+    my $txt = join('',@_);
+    $txt =~ s/\r?\n$//;
+    $self->{print}->($self->{type}."> $txt");
+}
+
+sub TIEHANDLE {
+    my $class = shift;
+    bless({
+        type => shift,
+        print => shift,
+    }, $class);
+}
 
 1;
 __END__
@@ -411,7 +436,7 @@ parameter.
         * ID: 704 - Index: 1
             Priority: 1078459012.42691
             Event: ping
-            
+
 Dump the contents of the event queue. Add a C<-v> parameter to get
 verbose output.
 
@@ -480,7 +505,7 @@ Matt Cashner (cpan@eekeek.org)
 
 =head1 DATE
 
-$Date: 2004-04-24 17:03:13 -0400 (Sat, 24 Apr 2004) $
+$Date: 2004-10-14 02:21:24 -0400 (Thu, 14 Oct 2004) $
 
 =head1 LICENSE
 
@@ -510,4 +535,4 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =cut
 
-
+# sungo // vim: ts=4 sw=4 expandtab
