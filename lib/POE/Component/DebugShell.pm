@@ -1,5 +1,5 @@
 package POE::Component::DebugShell;
-# $Header: /cvsroot/sungo/POE-Component-DebugShell/lib/POE/Component/DebugShell.pm,v 1.18 2004/03/07 01:45:47 sungo Exp $
+# $Header: /home/sungo/src/sungo/POE-Component-DebugShell/lib/POE/Component/DebugShell.pm,v 1.18 2004/03/07 01:45:47 sungo Exp $
 
 use warnings;
 use strict;
@@ -12,8 +12,7 @@ use POE;
 use POE::Wheel::ReadLine;
 use POE::API::Peek;
 
-
-our $VERSION = (qw($Revision: 1.18 $))[1];
+our $VERSION = '1.'.sprintf "%04d", (qw($Rev: 225 $))[1];
 our $RUNNING = 0;
 our %COMMANDS;
 our $SPAWN_TIME;
@@ -481,7 +480,7 @@ Matt Cashner (cpan@eekeek.org)
 
 =head1 DATE
 
-$Date: 2004/03/07 01:45:47 $
+$Date: 2004-04-24 17:03:13 -0400 (Sat, 24 Apr 2004) $
 
 =head1 LICENSE
 
