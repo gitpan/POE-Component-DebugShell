@@ -1,0 +1,17 @@
+name: POE-Component-DebugShell
+version: 1.14
+author: Matt Cashner (cpan@eekeek.org)
+license: bsd
+distribution_type: module
+build_requires:
+  Test::More: 0
+  Module::Signature: 0
+requires:
+  perl: 5.6.1
+  POE: 0.2601
+  POE::API::Peek: 0.02
+no_index:
+  directory:
+    - examples
+    - inc
+generated_by: Module::Install version 0.31
