@@ -1,17 +1,20 @@
-# $Id: Makefile.PL 224 2004-04-24 20:44:16Z sungo $
-use ExtUtils::MakeMaker;
-WriteMakefile(
-    NAME => 'POE::Component::DebugShell',
-    AUTHOR => 'Matt Cashner (sungo@pobox.com)',
-    VERSION_FROM => 'lib/POE/Component/DebugShell.pm',
-    PREREQ_PM => {
-        'POE' => '0.2601',
-        'POE::API::Peek' => '0.02',
-        'Test::More' => 0,
-    },
-    dist => {
-        PREOP => 'svn log > ${DISTVNAME}/Changes',
-    },
+use inc::Module::Install;
 
-);
+name            ('POE-Component-DebugShell');
+author          ('Matt Cashner (sungo@pobox.com)');
+version_from    ('lib/POE/Component/DebugShell.pm');
+license         ('bsd');
+
+requires        ('perl' => 5.006001);
+requires        ('POE'  => 1.0001);
+requires        ('POE::Wheel::ReadLine');
+requires        ('POE::API::Peek' => 0.02);
+requires        ('Term::ReadKey');
+
+requires        ('Test::More');
+build_requires  ('Test::Distribution');
+build_requires  ('Test::Pod::Coverage');
+
+
+WriteAll();
 

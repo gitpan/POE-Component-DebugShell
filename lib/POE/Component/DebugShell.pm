@@ -1,5 +1,4 @@
 package POE::Component::DebugShell;
-# $Header: /home/sungo/src/sungo/POE-Component-DebugShell/lib/POE/Component/DebugShell.pm,v 1.18 2004/03/07 01:45:47 sungo Exp $
 
 use warnings;
 use strict;
@@ -12,7 +11,7 @@ use POE;
 use POE::Wheel::ReadLine;
 use POE::API::Peek;
 
-our $VERSION = '1.'.sprintf "%04d", (qw($Rev: 411 $))[1];
+our $VERSION = '1.412';
 our $RUNNING = 0;
 our %COMMANDS;
 our $SPAWN_TIME;
@@ -499,13 +498,11 @@ passed to it containing an C<api> parameter, which is a
 C<POE::API::Peek> object, and an C<args> parameter, which is an array
 reference of arguments (think C<@ARGV>).
 
+=back
+
 =head1 AUTHOR
 
-Matt Cashner (cpan@eekeek.org)
-
-=head1 DATE
-
-$Date: 2004-10-14 02:21:24 -0400 (Thu, 14 Oct 2004) $
+Matt Cashner (sungo@pobox.com)
 
 =head1 LICENSE
 
